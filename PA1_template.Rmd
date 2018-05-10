@@ -1,0 +1,108 @@
+---
+title: "Activity Monitoring"
+author: "Pathe Bah"
+date: "May 11, 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Loading libraries, echo = TRUE}
+library(knitr)
+library(dplyr) # For data wrangling
+library(ggplot2) # For plotting nice graphs
+```
+
+```{r Reading the data, echo = TRUE}
+# Imporing activity data
+actData <- read.csv("activity.csv", header = TRUE, sep = ",")
+```
+
+### 1. What is the mean and median number of steps taken per day?
+
+```{r Number of steps per day, echo = TRUE, cache=TRUE, fig.height=3}
+#  Calculate total number of steps taken per day
+dailySteps <- actData %>% group_by(date) %>% summarise(numSteps  = sum(steps))
+# Histogram of number steps taken each day
+ggplot(data = dailySteps, aes(x = numSteps)) + geom_histogram(fill = "blue", bins = 8) + xlab("Number of Steps") + theme_minimal() + ggtitle("Number of steps taken each day")
+# Mean and Median of number of steps
+meanSteps <- mean(na.omit(dailySteps$numSteps))
+medSteps <- median(na.omit(dailySteps$numSteps))
+```
+
+* The mean number of steps taken each day is `r as.integer(meanSteps)`.
+* The median number steps taken each day is `r as.integer(medSteps)`.
+
+### 2. What is the average daily activity pattern?
+
+```{r Daily activity pattern, echo = TRUE, cache=TRUE, fig.height=3}
+# Calculate average steps for each interval accross all days
+avData <- actData %>% group_by(interval) %>% summarise(avgSteps  = mean(na.omit(steps)))
+# Plot time series of daily activity pattern
+maxSteps <- which.max(avData$avgSteps)
+maxInterval <- avData[maxSteps,1]
+ggplot(data = avData, aes(x = interval, y = avgSteps)) + geom_line(color = "red") + xlab("Interval") + ylab("Number of steps") + ggtitle("Average daily activity pattern") + geom_vline(aes(xintercept = maxInterval), color = "blue") + geom_text(aes(maxInterval,0,label = maxInterval, hjust = 0.5, vjust = 0.5)) + theme_minimal() + ggtitle("Average number of steps taken daily per 5 minute interval")
+```
+
+The 5-minute interval with the maximum average number of steps across all days is `r avData[maxSteps,1]`. This is indicated by the blue line in the graph above.
+
+## 3. Imputing missing values
+
+```{r imputing missing values}
+# Retreive the indexes of all row with NA
+naIndex <- which(is.na(actData$steps))
+numNA <- length(naIndex)
+```
+
+The number of missing values is `r numNA`
+
+```{r Fill in missing values, fig.height=3}
+# Add a column containing the average steps for each interval
+noNAData <- inner_join(actData,avData, by = "interval")
+# Replace missing values with average for the corresponding 5-minute interval.
+noNAData <- noNAData %>% mutate(steps = ifelse(is.na(steps),avgSteps,steps))
+dailyNoNA <- noNAData %>% group_by(date) %>% summarize(steps = sum(steps))
+# Plot histogram of daily steps after removing all NA's from the dataset
+ggplot(data = dailyNoNA, aes(x = steps)) + geom_histogram(fill = "blue", bins = 8) + xlab("Number of Steps") + ggtitle("Number of steps taken each day without missing values")
+# Compute mean and median of steps with no missing values
+meanStepsNoNA <- mean(dailyNoNA$steps)
+medStepsNoNA <- median(dailyNoNA$steps)
+```
+
+* The mean number of steps is `r as.integer(meanStepsNoNA)`.
+* The median number steps is `r as.integer(medStepsNoNA)`.
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r Differences in activity patterns, echo=TRUE}
+# Process data for the charts
+wdData <- noNAData %>% mutate(wd = weekdays(as.Date(date)))
+wdData <- wdData %>% mutate(wknd = ifelse(wd %in% c("Saturday","Sunday"),"weekend","weekday"))
+wdata <- wdData %>% group_by(interval, wknd) %>%  summarize(steps = mean(steps))
+# Plot activity patterns
+ggplot(data = wdata, aes(x = interval, y = steps, color = wknd)) + geom_line() +facet_wrap(~wknd, nrow = 2) + ggtitle("Differences in activity pattern between weekdays and weekends")
+
+```
+
+There seems to be difference in activity pattern between interval 500 to 750 and between 1000 and 2000. People are less active in the early intervals in weekends but more active throughout the rest of the day.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
